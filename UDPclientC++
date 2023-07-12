@@ -1,0 +1,97 @@
+#include <iostream>
+#include <string>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+
+int main() {
+
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+	SOCKET sockfd;
+	struct sockaddr_in servaddr, cliaddr;
+
+	//sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	/* sockaddr_in servaddr;
+	 servaddr.sin_family = AF_INET;
+	 servaddr.sin_addr.s_addr = INADDR_ANY;
+	 servaddr.sin_port = htons(8000);*/
+
+	servaddr.sin_family = AF_INET;
+	inet_pton(AF_INET, "127.0.0.1", &(servaddr.sin_addr));
+	servaddr.sin_port = htons(8000);
+	bind(sockfd, (const sockaddr*)&servaddr, sizeof(servaddr));
+
+	double buffer[1024];
+	//sockaddr_in cliaddr;
+	socklen_t len = sizeof(cliaddr);
+
+
+	while (true) {
+		int n = recvfrom(sockfd, (char*)buffer, sizeof(buffer), 0, (sockaddr*)&cliaddr, &len);
+		int num_elements = n / sizeof(double);
+
+		CHAR sysTimeStr[13] = {};
+		SYSTEMTIME systemTime;
+		GetLocalTime(&systemTime);
+		sprintf_s(sysTimeStr,
+			"%u:%02u:%02u:%03u",
+			systemTime.wHour,
+			systemTime.wMinute,
+			systemTime.wSecond,
+			systemTime.wMilliseconds);
+
+		std::cout << "Time : " << sysTimeStr << std::endl;
+		std::cout << "Longitute : " << buffer[0] << std::endl;
+		std::cout << "Latitute : " << buffer[1] << std::endl;
+		std::cout << "Velocity : " << buffer[2] << std::endl;
+		std::cout << "Acceleration : " << buffer[3] << std::endl;
+
+		switch (static_cast<int>(buffer[4])) {
+		case 0:
+			std::cout << "Signal : " << "No signal " << std::endl;
+			break;
+		case 1:
+			std::cout << "Signal : " << "Left Signal On  " << std::endl;
+			break;
+		case 2:
+			std::cout << "Signal : " << "Right Signal On " << std::endl;
+			break;
+		case 4:
+			std::cout << "Signal : " << "Flasher " << std::endl;
+			break;
+		case 8:
+			std::cout << "Signal : " << "Brake Light " << std::endl;
+			break;
+		case 9:
+			std::cout << "Signal : " << "Right Signal + Brake Light " << std::endl;
+			break;
+		case 10:
+			std::cout << "Signal : " << "Left Signal + Brake Light " << std::endl;
+			break;
+		case 12:
+			std::cout << "Signal : " << "EEBL " << std::endl;
+			break;
+		case 1024:
+			std::cout << "Signal : " << "Emergency Blue " << std::endl;
+			break;
+		case 2048:
+			std::cout << "Signal : " << "Emergency Red " << std::endl;
+			break;
+		case 4096:
+			std::cout << "Signal : " << "Siren " << std::endl;
+			break;
+		default:
+			std::cout << "Signal : " << "Unknown signal " << std::endl;
+			break;
+		}	
+
+		std::cout << "--------------------------------------------" << std::endl;
+	}
+
+	closesocket(sockfd);
+	return 0;
+}
