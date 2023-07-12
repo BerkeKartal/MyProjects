@@ -1,0 +1,650 @@
+import traci
+import socket
+import time
+import numpy
+import keyboard
+from PyQt5.QtWidgets import *
+from PyQt5.uic import loadUi
+import threading
+
+global iparray
+iparray = []
+global defspeed
+defspeed = False
+global defaccel
+defaccel = False
+global defedgeID
+defedgeID = False
+global checkplay
+checkplay = False
+global edgeIDs
+global a
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super(MainWindow, self).__init__(parent=None)
+        loadUi("SumoGui.ui", self)
+        self.setWindowTitle("SUMO UI")
+        self.show()
+        self.browseFile.clicked.connect(self.browseFiles)
+        self.startSim.clicked.connect(self.threadFunc)
+        self.liveMode.clicked.connect(self.checkLive)
+        self.playbackMode.clicked.connect(self.checkPlayback)
+        self.defaultSpeed.clicked.connect(self.defaSpeed)
+        self.customSpeed.clicked.connect(self.custSpeed)
+        self.defaultAcc.clicked.connect(self.defaAcc)
+        self.customAcc.clicked.connect(self.custAcc)
+        self.defaultEdgeIds.clicked.connect(self.defaEI)
+        self.customEdgeIds.clicked.connect(self.custEI)
+
+        self.a = None
+
+        self.vehiclesAdded.currentTextChanged.connect(self.print_current_index)
+
+    def print_current_index(self, a):
+        self.a = a
+        if a == "1":
+            self.ipaddress_1.setEnabled(True)
+            self.port_1.setEnabled(True)
+            self.ipaddress_2.setEnabled(False)
+            self.port_2.setEnabled(False)
+            self.ipaddress_3.setEnabled(False)
+            self.port_3.setEnabled(False)
+            self.ipaddress_4.setEnabled(False)
+            self.port_4.setEnabled(False)
+            self.ipaddress_5.setEnabled(False)
+            self.port_5.setEnabled(False)
+            self.vehicle_1.setEnabled(True)
+            self.vehicle_2.setEnabled(False)
+            self.vehicle_3.setEnabled(False)
+            self.vehicle_4.setEnabled(False)
+            self.vehicle_5.setEnabled(False)
+        elif a == "2":
+            self.ipaddress_1.setEnabled(True)
+            self.port_1.setEnabled(True)
+            self.ipaddress_2.setEnabled(True)
+            self.port_2.setEnabled(True)
+            self.ipaddress_3.setEnabled(False)
+            self.port_3.setEnabled(False)
+            self.ipaddress_4.setEnabled(False)
+            self.port_4.setEnabled(False)
+            self.ipaddress_5.setEnabled(False)
+            self.port_5.setEnabled(False)
+            self.vehicle_1.setEnabled(True)
+            self.vehicle_2.setEnabled(True)
+            self.vehicle_3.setEnabled(False)
+            self.vehicle_4.setEnabled(False)
+            self.vehicle_5.setEnabled(False)
+        elif a == "3":
+            self.ipaddress_1.setEnabled(True)
+            self.port_1.setEnabled(True)
+            self.ipaddress_2.setEnabled(True)
+            self.port_2.setEnabled(True)
+            self.ipaddress_3.setEnabled(True)
+            self.port_3.setEnabled(True)
+            self.ipaddress_4.setEnabled(False)
+            self.port_4.setEnabled(False)
+            self.ipaddress_5.setEnabled(False)
+            self.port_5.setEnabled(False)
+            self.vehicle_1.setEnabled(True)
+            self.vehicle_2.setEnabled(True)
+            self.vehicle_3.setEnabled(True)
+            self.vehicle_4.setEnabled(False)
+            self.vehicle_5.setEnabled(False)
+        elif a == "4":
+            self.ipaddress_1.setEnabled(True)
+            self.port_1.setEnabled(True)
+            self.ipaddress_2.setEnabled(True)
+            self.port_2.setEnabled(True)
+            self.ipaddress_3.setEnabled(True)
+            self.port_3.setEnabled(True)
+            self.ipaddress_4.setEnabled(True)
+            self.port_4.setEnabled(True)
+            self.ipaddress_5.setEnabled(False)
+            self.port_5.setEnabled(False)
+            self.vehicle_1.setEnabled(True)
+            self.vehicle_2.setEnabled(True)
+            self.vehicle_3.setEnabled(True)
+            self.vehicle_4.setEnabled(True)
+            self.vehicle_5.setEnabled(False)
+        elif a == "5":
+            self.ipaddress_1.setEnabled(True)
+            self.port_1.setEnabled(True)
+            self.ipaddress_2.setEnabled(True)
+            self.port_2.setEnabled(True)
+            self.ipaddress_3.setEnabled(True)
+            self.port_3.setEnabled(True)
+            self.ipaddress_4.setEnabled(True)
+            self.port_4.setEnabled(True)
+            self.ipaddress_5.setEnabled(True)
+            self.port_5.setEnabled(True)
+            self.vehicle_1.setEnabled(True)
+            self.vehicle_2.setEnabled(True)
+            self.vehicle_3.setEnabled(True)
+            self.vehicle_4.setEnabled(True)
+            self.vehicle_5.setEnabled(True)
+        else:
+            self.ipaddress_1.setEnabled(False)
+            self.port_1.setEnabled(False)
+            self.ipaddress_2.setEnabled(False)
+            self.port_2.setEnabled(False)
+            self.ipaddress_3.setEnabled(False)
+            self.port_3.setEnabled(False)
+            self.ipaddress_4.setEnabled(False)
+            self.port_4.setEnabled(False)
+            self.ipaddress_5.setEnabled(False)
+            self.port_5.setEnabled(False)
+            self.vehicle_1.setEnabled(False)
+            self.vehicle_2.setEnabled(False)
+            self.vehicle_3.setEnabled(False)
+            self.vehicle_4.setEnabled(False)
+            self.vehicle_5.setEnabled(False)
+        return a
+
+    def threadFunc(self):
+        my_thread = threading.Thread(target=my_function)
+        my_thread.start()
+        my_thread.join()
+
+    def browseFiles(self):
+        global fileName
+        fileName = QFileDialog.getOpenFileName(self, 'Open File')
+        self.filename.setText(fileName[0])
+
+    def checkLive(self):
+        self.defaultSpeed.setEnabled(True)
+        self.customSpeed.setEnabled(True)
+        self.defaultAcc.setEnabled(True)
+        self.customAcc.setEnabled(True)
+        self.defaultEdgeIds.setEnabled(True)
+        self.customEdgeIds.setEnabled(True)
+        self.defaultSpeed.setCheckable(True)
+        self.customSpeed.setCheckable(True)
+        self.defaultAcc.setCheckable(True)
+        self.customAcc.setCheckable(True)
+        self.defaultEdgeIds.setCheckable(True)
+        self.customEdgeIds.setCheckable(True)
+        global checkplay
+        checkplay = False
+
+    def checkPlayback(self):
+        self.defaultSpeed.setEnabled(False)
+        self.customSpeed.setEnabled(False)
+        self.defaultAcc.setEnabled(False)
+        self.customAcc.setEnabled(False)
+        self.defaultEdgeIds.setEnabled(False)
+        self.customEdgeIds.setEnabled(False)
+        self.defaultSpeed.setCheckable(False)
+        self.customSpeed.setCheckable(False)
+        self.defaultAcc.setCheckable(False)
+        self.customAcc.setCheckable(False)
+        self.defaultEdgeIds.setCheckable(False)
+        self.customEdgeIds.setCheckable(False)
+        self.speedValue.setEnabled(False)
+        self.accelerationValue.setEnabled(False)
+        self.startEdgeId.setEnabled(False)
+        self.endEdgeId.setEnabled(False)
+        global checkplay
+        checkplay = True
+
+    def defaSpeed(self):
+        self.speedValue.setEnabled(False)
+        global defspeed
+        defspeed = True
+
+    def custSpeed(self):
+        self.speedValue.setEnabled(True)
+        global defspeed
+        defspeed = False
+
+    def defaAcc(self):
+        self.accelerationValue.setEnabled(False)
+        global defaccel
+        defaccel = True
+
+    def custAcc(self):
+
+        self.accelerationValue.setEnabled(True)
+        global defaccel
+        defaccel = False
+
+    def defaEI(self):
+        self.startEdgeId.setEnabled(False)
+        self.endEdgeId.setEnabled(False)
+        global defedgeID
+        defedgeID = True
+
+    def custEI(self):
+        self.startEdgeId.setEnabled(True)
+        self.endEdgeId.setEnabled(True)
+        global defedgeID
+        defedgeID = False
+
+    def getValues(self):
+        global x
+        global a
+        a = self.a
+
+        if self.vehicle_1.isChecked():
+            x = 1
+        elif self.vehicle_2.isChecked():
+            x = 2
+        elif self.vehicle_3.isChecked():
+            x = 3
+        elif self.vehicle_4.isChecked():
+            x = 4
+        elif self.vehicle_5.isChecked():
+            x = 5
+        else:
+            x = 0
+
+        if int(self.a) == 0:
+            ipa = self.ipaddress.text()
+            portA = self.port.text()
+        elif int(self.a) == 1:
+            ip1 = self.ipaddress_1.text()
+            port1 = self.port_1.text()
+        elif int(self.a) == 2:
+            ip1 = self.ipaddress_1.text()
+            port1 = self.port_1.text()
+            ip2 = self.ipaddress_2.text()
+            port2 = self.port_2.text()
+        elif int(self.a) == 3:
+            ip1 = self.ipaddress_1.text()
+            port1 = self.port_1.text()
+            ip2 = self.ipaddress_2.text()
+            port2 = self.port_2.text()
+            ip3 = self.ipaddress_3.text()
+            port3 = self.port_3.text()
+        elif int(self.a) == 4:
+            ip1 = self.ipaddress_1.text()
+            port1 = self.port_1.text()
+            ip2 = self.ipaddress_2.text()
+            port2 = self.port_2.text()
+            ip3 = self.ipaddress_3.text()
+            port3 = self.port_3.text()
+            ip4 = self.ipaddress_4.text()
+            port4 = self.port_4.text()
+        elif int(self.a) == 5:
+            ip1 = self.ipaddress_1.text()
+            port1 = self.port_1.text()
+            ip2 = self.ipaddress_2.text()
+            port2 = self.port_2.text()
+            ip3 = self.ipaddress_3.text()
+            port3 = self.port_3.text()
+            ip4 = self.ipaddress_4.text()
+            port4 = self.port_4.text()
+            ip5 = self.ipaddress_5.text()
+            port5 = self.port_5.text()
+
+        if checkplay == True:
+            speed = 5
+            acceleration = 1
+            global edgeIDs
+            edgeIDs = False
+            if self.a == '0':
+                valueArray = [x, a, speed, acceleration, edgeIDs, ipa, portA]
+            elif self.a == '1':
+                valueArray = [x, a, speed, acceleration, edgeIDs, ip1, port1]
+            elif self.a == '2':
+                valueArray = [x, a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2]
+            elif self.a == '3':
+                valueArray = [x, a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2, ip3, port3]
+            elif self.a == '4':
+                valueArray = [x, a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2, ip3, port3, ip4, port4]
+            elif self.a == '5':
+                valueArray = [x, a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2, ip3, port3, ip4, port4, ip5,
+                              port5]
+        else:
+
+            if self.a == '0':
+
+                if defspeed == True:
+                    speed = 5
+                else:
+                    speed = self.speedValue.text()
+
+                if defaccel == True:
+                    acceleration = 1
+                else:
+                    acceleration = self.accelerationValue.text()
+
+                if defedgeID == True:
+                    edgeIDs = False
+                    valueArray = [x, self.a, ipa, portA, speed, acceleration, edgeIDs]
+
+                else:
+                    edgeIDs = True
+                    startEdgeId = self.startEdgeId.text()
+                    endEdgeId = self.endEdgeId.text()
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, startEdgeId, endEdgeId, ipa, portA]
+
+            elif self.a == '1':
+
+                if defspeed == True:
+                    speed = 5
+                else:
+                    speed = self.speedValue.text()
+
+                if defaccel == True:
+                    acceleration = 1
+                else:
+                    acceleration = self.accelerationValue.text()
+
+                if defedgeID == True:
+                    edgeIDs = False
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, ip1, port1]
+
+                else:
+                    edgeIDs = True
+                    startEdgeId = self.startEdgeId.text()
+                    endEdgeId = self.endEdgeId.text()
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, startEdgeId, endEdgeId, ip1, port1]
+
+            elif self.a == '2':
+
+                if defspeed == True:
+                    speed = 5
+                else:
+                    speed = self.speedValue.text()
+
+                if defaccel == True:
+                    acceleration = 1
+                else:
+                    acceleration = self.accelerationValue.text()
+
+                if defedgeID == True:
+                    edgeIDs = False
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2]
+
+                else:
+                    edgeIDs = True
+                    startEdgeId = self.startEdgeId.text()
+                    endEdgeId = self.endEdgeId.text()
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, startEdgeId, endEdgeId, ip1, port1, ip2,
+                                  port2]
+
+            elif self.a == '3':
+
+                if defspeed == True:
+                    speed = 5
+                else:
+                    speed = self.speedValue.text()
+
+                if defaccel == True:
+                    acceleration = 1
+                else:
+                    acceleration = self.accelerationValue.text()
+
+                if defedgeID == True:
+                    edgeIDs = False
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2, ip3, port3]
+
+                else:
+                    edgeIDs = True
+                    startEdgeId = self.startEdgeId.text()
+                    endEdgeId = self.endEdgeId.text()
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, startEdgeId, endEdgeId, ip1, port1, ip2,
+                                  port2, ip3, port3]
+
+
+            elif self.a == '4':
+
+                if defspeed == True:
+                    speed = 5
+                else:
+                    speed = self.speedValue.text()
+
+                if defaccel == True:
+                    acceleration = 1
+                else:
+                    acceleration = self.accelerationValue.text()
+
+                if defedgeID == True:
+                    edgeIDs = False
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2, ip3, port3, ip4,
+                                  port4]
+
+                else:
+                    edgeIDs = True
+                    startEdgeId = self.startEdgeId.text()
+                    endEdgeId = self.endEdgeId.text()
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, startEdgeId, endEdgeId, ip1, port1, ip2,
+                                  port2, ip3, port3, ip4, port4]
+
+
+            elif self.a == ' 5 ':
+
+                if defspeed == True:
+                    speed = 5
+                else:
+                    speed = self.speedValue.text()
+
+                if defaccel == True:
+                    acceleration = 1
+                else:
+                    acceleration = self.accelerationValue.text()
+
+                if defedgeID == True:
+                    edgeIDs = False
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs, ip1, port1, ip2, port2, ip3, port3, ip4,
+                                  port4, ip5, port5]
+
+                else:
+                    edgeIDs = True
+                    startEdgeId = self.startEdgeId.text()
+                    endEdgeId = self.endEdgeId.text()
+                    valueArray = [x, self.a, speed, acceleration, edgeIDs,
+                                  startEdgeId, endEdgeId, ip1, port1, ip2, port2, ip3, port3, ip4, port4, ip5, port5]
+
+        return valueArray
+
+
+def my_function():
+    traci.start(["sumo-gui", "-c", fileName[0]])
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    user_value = int(iparray[0].getValues()[1])
+
+    if int(iparray[0].getValues()[0]) == 1:
+        vehicle_id = 'userVeh_1'
+    elif int(iparray[0].getValues()[0]) == 2:
+        vehicle_id = 'userVeh_2'
+    elif int(iparray[0].getValues()[0]) == 3:
+        vehicle_id = 'userVeh_3'
+    elif int(iparray[0].getValues()[0]) == 4:
+        vehicle_id = 'userVeh_4'
+    elif int(iparray[0].getValues()[0]) == 5:
+        vehicle_id = 'userVeh_5'
+
+    if int(iparray[0].getValues()[1]) == 1:
+        traci.vehicle.add('userVeh_1', '!r1')
+    elif int(iparray[0].getValues()[1]) == 2:
+        traci.vehicle.add('userVeh_1', '!r1')
+        traci.vehicle.add('userVeh_2', '!r1')
+    elif int(iparray[0].getValues()[1]) == 3:
+        traci.vehicle.add('userVeh_1', '!r1')
+        traci.vehicle.add('userVeh_2', '!r1')
+        traci.vehicle.add('userVeh_3', '!r1')
+    elif int(iparray[0].getValues()[1]) == 4:
+        traci.vehicle.add('userVeh_1', '!r1')
+        traci.vehicle.add('userVeh_2', '!r1')
+        traci.vehicle.add('userVeh_3', '!r1')
+        traci.vehicle.add('userVeh_4', '!r1')
+
+    elif int(iparray[0].getValues()[1]) == 5:
+        traci.vehicle.add('userVeh_1', '!r1')
+        traci.vehicle.add('userVeh_2', '!r1')
+        traci.vehicle.add('userVeh_3', '!r1')
+        traci.vehicle.add('userVeh_4', '!r1')
+        traci.vehicle.add('userVeh_5', '!r1')
+
+    # for i in range(user_value+1):
+    #     traci.vehicle.add('userVeh_' + str(i), '!r1')
+    #     # traci.vehicle.setSpeed('userVeh_' + str(i),5)
+
+    if iparray[0].getValues()[4]:
+        traci.vehicle.setRoute(vehicle_id, (iparray[0].getValues()[5], iparray[0].getValues()[6]))
+
+        traci.vehicle.setSpeed(vehicle_id, int(iparray[0].getValues()[2]))
+
+        while traci.simulation.getMinExpectedNumber() > 0:
+
+            if not checkplay:
+                lane_index = traci.vehicle.getLaneIndex(vehicle_id)
+                if keyboard.is_pressed('1'):  # accelerate
+                    current_speed = traci.vehicle.getSpeed(vehicle_id)
+                    traci.vehicle.setSpeed(vehicle_id, current_speed + int(iparray[0].getValues()[3]))
+                elif keyboard.is_pressed('2'):  # decelerate
+                    current_speed = traci.vehicle.getSpeed(vehicle_id)
+                    traci.vehicle.setSpeed(vehicle_id, current_speed - int(iparray[0].getValues()[3]))
+                elif keyboard.is_pressed('3'):
+                    traci.vehicle.changeLane(vehicle_id, lane_index + 1, 1000)
+                elif keyboard.is_pressed('4'):
+                    traci.vehicle.changeLane(vehicle_id, lane_index - 1, 1000)
+                elif keyboard.is_pressed('5'):  # decelerate
+                    current_speed = traci.vehicle.getSpeed(vehicle_id)
+                    traci.vehicle.setSpeed(vehicle_id, current_speed - 7.1)
+                    traci.vehicle.setSignals(vehicle_id, 12)
+                elif keyboard.is_pressed('6'):
+                    traci.vehicle.setSignals(vehicle_id, 0)
+                elif keyboard.is_pressed('q'):  # quit
+                    break
+
+            datalist = [None, None, None, None, None]
+
+            if int(traci.simulation.getTime() * 1000) % 10 == 0:  # check if 100 milliseconds have passed
+
+                for i in range(int(iparray[0].getValues()[1]) + 1):
+                    x, y = traci.vehicle.getPosition(vehicle_id)
+                    lon, lat = traci.simulation.convertGeo(x, y)
+                    speed = traci.vehicle.getSpeed(vehicle_id)
+                    acceleration = traci.vehicle.getAcceleration(vehicle_id)
+                    speedkmh = speed * 3.6
+                    signals = traci.vehicle.getSignals(vehicle_id)
+                    accelerationkmh = acceleration * 3.6
+
+                    array = numpy.array([lat, lon, speedkmh, accelerationkmh, signals], dtype=numpy.float64)
+                    datalist[i] = array.tobytes()
+                    datalist.append(array)
+                if int(iparray[0].getValues()[1]) == 0:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    
+                elif int(iparray[0].getValues()[1]) == 1:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    
+                elif int(iparray[0].getValues()[1]) == 2:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+
+                elif int(iparray[0].getValues()[1]) == 3:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+                    sock.sendto(datalist[2], (iparray[0].getValues()[11], int(iparray[0].getValues()[12])))
+                    
+                elif int(iparray[0].getValues()[1]) == 4:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+                    sock.sendto(datalist[2], (iparray[0].getValues()[11], int(iparray[0].getValues()[12])))
+                    sock.sendto(datalist[3], (iparray[0].getValues()[13], int(iparray[0].getValues()[14])))
+                    
+                elif int(iparray[0].getValues()[1]) == 5:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+                    sock.sendto(datalist[2], (iparray[0].getValues()[11], int(iparray[0].getValues()[12])))
+                    sock.sendto(datalist[3], (iparray[0].getValues()[13], int(iparray[0].getValues()[14])))
+                    sock.sendto(datalist[4], (iparray[0].getValues()[15], int(iparray[0].getValues()[16])))
+            traci.simulationStep()
+
+            time.sleep(0.1)
+
+        traci.close()
+        sock.close()
+        pass
+
+    if not iparray[0].getValues()[4]:
+        traci.vehicle.setSpeed(vehicle_id, int(iparray[0].getValues()[2]))
+
+        while traci.simulation.getMinExpectedNumber() > 0:
+
+            if not checkplay:
+                lane_index = traci.vehicle.getLaneIndex(vehicle_id)
+                if keyboard.is_pressed('1'):  # accelerate
+                    current_speed = traci.vehicle.getSpeed(vehicle_id)
+                    traci.vehicle.setSpeed(vehicle_id, current_speed + int(iparray[0].getValues()[3]))
+                elif keyboard.is_pressed('2'):  # decelerate
+                    current_speed = traci.vehicle.getSpeed(vehicle_id)
+                    traci.vehicle.setSpeed(vehicle_id, current_speed - int(iparray[0].getValues()[3]))
+                elif keyboard.is_pressed('3'):
+                    traci.vehicle.changeLane(vehicle_id, lane_index + 1, 1000)
+                elif keyboard.is_pressed('4'):
+                    traci.vehicle.changeLane(vehicle_id, lane_index - 1, 1000)
+                elif keyboard.is_pressed('5'):  # decelerate
+                    current_speed = traci.vehicle.getSpeed(vehicle_id)
+                    traci.vehicle.setSpeed(vehicle_id, current_speed - 7.1)
+                    traci.vehicle.setSignals(vehicle_id, 12)
+                elif keyboard.is_pressed('6'):
+                    traci.vehicle.setSignals(vehicle_id, 0)
+                elif keyboard.is_pressed('q'):  # quit
+                    break
+
+            datalist = [None, None, None, None, None]
+
+            if int(traci.simulation.getTime() * 1000) % 10 == 0:  # check if 100 milliseconds have passed
+
+                for i in range(int(iparray[0].getValues()[1]) + 1):
+                    x, y = traci.vehicle.getPosition(vehicle_id)
+                    lon, lat = traci.simulation.convertGeo(x, y)
+                    speed = traci.vehicle.getSpeed(vehicle_id)
+                    acceleration = traci.vehicle.getAcceleration(vehicle_id)
+                    speedkmh = speed * 3.6
+                    signals = traci.vehicle.getSignals(vehicle_id)
+                    accelerationkmh = acceleration * 3.6
+
+                    array = numpy.array([lat, lon, speedkmh, accelerationkmh, signals], dtype=numpy.float64)
+                    datalist[i] = array.tobytes()
+                    datalist.append(array)
+                if int(iparray[0].getValues()[1]) == 0:
+
+                    sock.sendto(datalist[0], (iparray[0].getValues()[5], int(iparray[0].getValues()[6])))
+                elif int(iparray[0].getValues()[1]) == 1:
+
+                    sock.sendto(datalist[0], (iparray[0].getValues()[5], int(iparray[0].getValues()[6])))
+                elif int(iparray[0].getValues()[1]) == 2:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[5], int(iparray[0].getValues()[6])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+
+                elif int(iparray[0].getValues()[1]) == 3:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[5], int(iparray[0].getValues()[6])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[2], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+                elif int(iparray[0].getValues()[1]) == 4:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[5], int(iparray[0].getValues()[6])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[2], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+                    sock.sendto(datalist[3], (iparray[0].getValues()[11], int(iparray[0].getValues()[12])))
+                elif int(iparray[0].getValues()[1]) == 5:
+                    sock.sendto(datalist[0], (iparray[0].getValues()[5], int(iparray[0].getValues()[6])))
+                    sock.sendto(datalist[1], (iparray[0].getValues()[7], int(iparray[0].getValues()[8])))
+                    sock.sendto(datalist[2], (iparray[0].getValues()[9], int(iparray[0].getValues()[10])))
+                    sock.sendto(datalist[3], (iparray[0].getValues()[11], int(iparray[0].getValues()[12])))
+                    sock.sendto(datalist[4], (iparray[0].getValues()[13], int(iparray[0].getValues()[14])))
+            traci.simulationStep()
+
+            time.sleep(0.1)
+
+        traci.close()
+        sock.close()
+        pass
+
+
+def main():
+    app = QApplication([])
+    iparray.append(MainWindow())
+    app.exec_()
+
+
+if __name__ == '__main__':
+    main()
